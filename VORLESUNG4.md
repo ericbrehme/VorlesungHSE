@@ -1,4 +1,4 @@
-## Vorlesung 3 Resumé
+## Vorlesung 3
 
 SRAM/DRAM
 
