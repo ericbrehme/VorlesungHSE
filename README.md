@@ -9,8 +9,15 @@
         - [Interne Struktur](#interne-struktur)
       - [Instruktionsarten](#instruktionsarten)
       - [Instruction Sets](#instruction-sets)
+    - [Resetprozess](#resetprozess)
         - [CISC (Complex Instruction Set Computer)](#cisc-complex-instruction-set-computer)
         - [RISC (Reduced Instruction Set Computer)](#risc-reduced-instruction-set-computer)
+      - [Maschinen Instrunktions Kit](#maschinen-instrunktions-kit)
+    - [Spezielle Operationsmodi](#spezielle-operationsmodi)
+      - [Interrupt Systeme](#interrupt-systeme)
+      - [Exceptions](#exceptions)
+      - [Direct Memmory Access (DMA)](#direct-memmory-access-dma)
+        - [Interupt Vektoriesierung und Masking](#interupt-vektoriesierung-und-masking)
       - [Architekturen](#architekturen)
   - [Mikrocontrollerprogrammierung  - \[Mikroprozessortechnik Grundlagen\]](#mikrocontrollerprogrammierung----mikroprozessortechnik-grundlagen)
     - [HAL API](#hal-api)
@@ -24,7 +31,6 @@
     - [ADC (Analog to Digital Converter)](#adc-analog-to-digital-converter)
       - [ADC SAR Logic (Successive Approximation Register)](#adc-sar-logic-successive-approximation-register)
     - [DAC (Digital to Analog Converter)](#dac-digital-to-analog-converter)
-    - [Interrupt Systeme](#interrupt-systeme)
     - [Serial Interfaces](#serial-interfaces)
     - [Komponenten für Operationssicherheit](#komponenten-für-operationssicherheit)
       - [Watchdog](#watchdog)
@@ -150,10 +156,35 @@
     - Opcodes mit mehreren Operanden haben (z.B. `ADD R1, R2, R3`)
 - Assembler
   - Programmiersprache, die direkt in Maschinencode übersetzt werden kann
+  - Benutzt menschenlesbare Mnemonics um Maschineninstruktionen zu beschreiben
   - Assemblerbefehle sind 
     - direkt mit Opcodes verknüpft (Mnemonics)
     - sehr hardwarenah
-    - plattformspezifisch
+    - Plattform- bzw. Prozessorspezifisch
+  - Code- und Datenadressen werden während der Übersetzung in Maschineninstruktionen eingefügt
+  - Compiler abstrahiert von der Hardware und erzeugt Assemblercode (von einer höheren Programmiersprache)
+    - eine Compilerinstruktion kann mehrere Assemblerinstruktionen erzeugen
+  - 
+```asm
+; beispiel
+mov r0, #0x42
+add r0, r0, #0x1	
+```
+
+### Resetprozess
+
+- Ist eine definierte Startprozedur
+- Initialisiert Register und Peripherie
+- Zwei mögliche Szenarien:
+  - Starte immer von der gleichen Adresse um das gleiche Programm auszuführen
+  - Lädt einen Resetvektor aus dem nicht-volatilen Speicher und startet von dieser Adresse (Bootloader etc.)
+- Resetauslöser
+  - Power-On Reset
+  - Watchdog Reset
+  - Brownout Reset
+  - Software Reset
+  - External Reset
+- Meist existiert intern ein Verzögerungsmechanismus, der den internen Komponenten Zeit einräumt, um z.B. die Spannung zu stabilisieren bevor der Reset ausgeführt wird
 
 ##### CISC (Complex Instruction Set Computer)
 
@@ -174,7 +205,98 @@
     - eine multiplikation in der ALU korrespondiert zu einem echten Hardwaremultiplizierer und nicht einer Folge von Mikrooperationen
   - keine algorithmische Ausführung von Instruktionen
   - Scalar: nur eine Instruktion wird pro Taktzyklus ausgeführt
+  - Super-scalar: mehrere Instruktionen werden pro Taktzyklus ausgeführt
+  - Load/Store Architektur
+    - nur Load/Store Instruktionen können auf den Speicher zugreifen
+    - alle anderen Instruktionen können nur auf Register zugreifen
+  - großes Regiserset
+  - konstante Instruktionslänge, Maschineninstruktionen sind immer gleich lang
+  - horizontales Instruktionsformat, Bits haben an festgelegten Positionen immer die gleiche Bedeutung
+  - orthogonale Instruktionen, Instruktionen können auf alle Register angewendet werden
   - z.B. ARM, AVR, MSP430, etc.
+
+#### Maschinen Instrunktions Kit
+
+- Transport Instruktion:
+  - Instruktionen, die Daten von einem Ort zum anderen transportieren
+  - z.B. LOAD, STORE, PUSH, POP, etc.
+  - Memory to Register, Register to Memory, Register to Register, Memory to Memory
+- Arithmetische Instruktionen
+  - ADD, SUB, MUL, DIV, etc.
+- Bitweise Logik Instruktionen
+  - AND, OR, XOR, NOT, etc.
+- Shift Instruktionen
+  - Shift left, Shift right, Rotate left, Rotate right, etc.
+- Single Bit Instruktionen
+  - Set, Clear, Test, etc.
+- Sprung Instruktionen
+  - Unbedingte Sprünge
+  - Bedingte Sprünge
+  - Unterprogramm Sprünge
+  - Interrupt Sprünge
+  - returns
+- Prozessor Kontroll Instruktionen
+  - NOP, HALT, etc.
+  - Interrupt enables, Prozessormodi (user, thread, supervisor, etc.)
+
+### Spezielle Operationsmodi
+
+#### Interrupt Systeme
+
+- Interrups sind spezielle Operationsmodi, die durch externe, nicht zeitlich vorhersagbare Ereignisse ausgelöst werden
+- Sie lösen das Problem von asynchronen Ereignissen
+  - z.B. Tastendruck, Timer, etc.
+  - CPU kann nicht auf alle Ereignisse warten
+- Peripherie muss mit CPU bidirektional Daten austauschen können
+![Alt text](image-3.png) 
+- Interruptereignisse nennt man "service-requests"
+  - Mikroprozessor muss über interrupt signal inputs verfügen
+  - der Mikroprozessor muss diese Ereignisse abarbeiten, da sie meist eine besondere Priorität haben (z.B. durch volle Buffer o.Ä.)
+- Lösen sogenannte ISR (Interrupt Service Routinen) aus
+  - hier werden die Interrupts Programmatisch abgearbeitet in dem sie z.B. eine Callbackfunktion bedienen oder einen Buffer mit Daten füllen
+  - sollten klein und effizient sein, da der Interrupt die CPU blockiert
+  - setzen von Flags, die in der Hauptschleife dann abgearbeitet werden können ohne den Hauptprozess weiter zu blockieren
+- Non-Maskible Interrupts (NMI)
+  - können nicht deaktiviert werden
+  - z.B. Watchdog, Brownout, etc.
+
+#### Exceptions
+
+- Exeptions sind Fehler, die während der Ausführung von Instruktionen auftreten
+- werden ähnlich wie ISR gehandelt
+- Meist ausgelöst durch kritische Programmfehler
+- Examples are:
+  - Division error (div by 0 or overflow)
+  - Unknown opcode
+  - Number out of bounds
+  - Single step execution activated (debug mode)
+  - Page error (memory)
+  - Disallowed memory access
+  - Disallowed call of privileged instruction
+  - OS call in privileged mode
+
+#### Direct Memmory Access (DMA)
+
+- DMA ist ein Mechanismus, der es Peripheriegeräten erlaubt, direkt auf den Speicher zuzugreifen
+- CPU muss nicht in den Prozess eingreifen
+- CPU kann in Standby gehen und Energie sparen
+- Benutzt Systembus um Daten zu übertragen
+- Operiert mit der Nutzung von Tri-state Signalen
+  - 
+
+![Alt text](image-4.png)
+
+- Alternativ Polling:
+  - CPU fragt regelmäßig die Peripherie ab, ob ein Ereigniss ausgelöst wurde
+  - CPU muss ständig die Peripherie abfragen und kann opfert so wertvolle Rechenzeit oder kann nicht in Standby gehen, um Energie zu sparen.
+
+
+
+##### Interupt Vektoriesierung und Masking
+
+- Interruptvektoren im Speicher können direkt auf eine ISR zeigen
+- Interruptmasken erlauben es, bestimmte Interrupts zu (de-)aktivieren
+- Interruptmasken erlauben Priorisierung von service requests
 
 #### Architekturen
 - Harvard
@@ -204,11 +326,7 @@ CPU Register
 
 
 
-```asm
-; beispiel
-mov r0, #0x42
-add r0, r0, #0x1	
-```
+
 
 SRAM/DRAM
 
@@ -477,7 +595,7 @@ ___
 
 ![Spannungsteiler](./spannungswandler.png)
 
-### Interrupt Systeme
+
 
 ### Serial Interfaces
 
@@ -619,6 +737,8 @@ void process(void) {
   }
 }
 ```
+
+
 
 ##### C-Funtionszeiger
 
